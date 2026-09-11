@@ -30,6 +30,6 @@ Piano: 27 arrivo · 28 Alcázar + Cattedrale · 29 Triana · 30 città lenta · 
 | `agent/knowledge/` | Note per l'agente Grok |
 | `.grok/skills/sevilla-guide/` | Skill `/sevilla-guide` |
 
-Serve un server HTTP (`python3 -m http.server`) perché JSON e itinerario non si caricano da `file://`.
+**Mappa live:** https://alessandroannini.github.io/seville/
 
-Non c'è ancora un sito pubblico.
+In locale serve un server HTTP (`python3 -m http.server`) perché JSON e itinerario non si caricano da `file://`.
