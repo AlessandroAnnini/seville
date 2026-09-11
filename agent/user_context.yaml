@@ -1,0 +1,54 @@
+# Contesto ospite — l'agente lo considera sempre vero
+soggiorno:
+  citta: Sevilla
+  hotel: Petit Palace Puerta de Triana
+  indirizzo: "C. Reyes Católicos, 5, 41001 Sevilla"
+  lat: 37.388733
+  lng: -5.999660
+  zona: "Arenal / Puerta de Triana (tra Cattedrale e ponte per Triana)"
+  note: "Hub notturno in hotel. Itinerari a stella: si esce e si rientra la sera."
+  dal: "2026-12-27"
+  al: "2027-01-01"
+  ospiti: 2
+  chi: "coppia (lui e lei)"
+
+voli:
+  andata:
+    numero: FR4348
+    tratta: BLQ-SVQ
+    partenza: "2026-12-27 17:30"
+    arrivo: "2026-12-27 20:15"
+    fonte: "Orario invernale Aeroporto di Bologna 2026/27"
+  ritorno:
+    numero: FR4349
+    tratta: SVQ-BLQ
+    partenza: "2027-01-01 17:15"
+    arrivo: "2027-01-01 19:55"
+    fonte: "Orario invernale Aeroporto di Bologna 2026/27"
+
+mezzi:
+  piedi: true
+  bici:
+    si: true
+    tipo: city_or_hybrid
+    portabici_auto: false   # MAI proporre auto+bici in un'altra destinazione
+  auto:
+    si: true
+    alimentazione: elettrica
+    autonomia_km_realistica: 250
+    non_scendere_sotto_pct: 20
+    preferenza_ricarica:
+      - type2_destinazione
+      - ccs_rapida
+
+regole_logistica:
+  - "0–3 km da hotel: piedi (centro e Triana sono a piedi)"
+  - "3–12 km: bici se non è un forno; EV se caldo estremo, pioggia, sera tardi"
+  - "12+ km / day trip: solo EV o treno/bus; la bici resta in hotel"
+  - "Itálica: bus da Plaza de Armas spesso meglio dell'auto"
+  - "Córdoba: AVE da Santa Justa (~45 min) oppure EV"
+  - "Cádiz / Doñana / Ochando (Los Rosales): EV; bici a casa"
+  - "Caldo >32° o UV alto: monumenti presto, indoor a mezzogiorno, tapas dopo le 20:00"
+
+lingua: it
+tono: diretto_locale

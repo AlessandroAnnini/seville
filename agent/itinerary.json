@@ -1,0 +1,155 @@
+{
+  "source": "Piano bloccato 27 dic 2026 – 1 gen 2027. Coppia, hotel Puerta de Triana. Link ufficiali only.",
+  "days": [
+    {
+      "date": "2026-12-27",
+      "label": "Dom 27",
+      "title": "Arrivo",
+      "focus": { "lat": 37.38869, "lng": -5.99963, "zoom": 15 },
+      "rain": "Taxi e cena al chiuso in Arenal. Niente monumenti.",
+      "blocks": [
+        { "when": "Sera", "place": "Aeroporto SVQ San Pablo", "note": "FR4348 atterra 20:15. Taxi ~29 € (Aena festivo) o bus EA ~35 min.", "walkMin": 25 },
+        { "when": "Sera", "place": "Hotel Petit Palace Puerta de Triana", "note": "Lascia i bagagli. Niente Alcázar stasera." },
+        { "when": "Sera", "place": "Bodeguita Romero", "note": "Cena a piedi se ancora aperto. Altrimenti Arenal." }
+      ],
+      "book": []
+    },
+    {
+      "date": "2026-12-28",
+      "label": "Lun 28",
+      "title": "Alcázar + Cattedrale",
+      "focus": { "lat": 37.3848, "lng": -5.992, "zoom": 16 },
+      "rain": "Alcázar resta valido (palazzi coperti). Se i giardini sono un lago: Archivo e pranzo lungo, Giralda se asciuga.",
+      "blocks": [
+        { "when": "Mattina", "place": "Real Alcázar", "note": "Primo slot. Inverno 9:30–17:00. Giardini per intero." },
+        { "when": "Pomeriggio", "place": "Catedral de Sevilla", "note": "Taquilla da 11:00. Meglio dalle 14:00, dopo l'Alcázar." },
+        { "when": "Pomeriggio", "place": "Giralda", "note": "Ultimo accesso prima della chiusura. Tramonto se lo slot regge." },
+        { "when": "Sera", "place": "Casa de la Memoria", "note": "Flamenco. Oppure Cañabota se preferite la cena special." }
+      ],
+      "book": [
+        {
+          "id": "alcazar-28",
+          "name": "Alcázar 28, primo slot",
+          "need": "now",
+          "url": "https://alcazarsevilla.org/prepara-la-visita/",
+          "forDate": "2026-12-28",
+          "hours": "9:30–17:00 inverno",
+          "closed": "1 e 6 gennaio, Venerdì Santo, 25 dicembre",
+          "place": "Real Alcázar"
+        },
+        {
+          "id": "catedral-28",
+          "name": "Cattedrale + Giralda 28 pomeriggio",
+          "need": "now",
+          "url": "https://catedraldesevilla.servitickets.es/",
+          "forDate": "2026-12-28",
+          "hours": "Lun–sab taquilla 11:00–18:00",
+          "closed": "1 gennaio visita culturale sospesa",
+          "place": "Catedral de Sevilla"
+        },
+        {
+          "id": "memoria-28",
+          "name": "Casa de la Memoria (28 o 29)",
+          "need": "now",
+          "url": "https://casadelamemoria.es/",
+          "forDate": "2026-12-28",
+          "hours": "Spettacoli 18:00 e 19:30",
+          "place": "Casa de la Memoria"
+        },
+        {
+          "id": "canabota-2829",
+          "name": "Cañabota (28 o 29, non la 31)",
+          "need": "now",
+          "url": "https://canabota.es/",
+          "tel": "+34954870298",
+          "forDate": "2026-12-28",
+          "hours": "Lun–ven 13:30–17:00 e 19:00–00:00",
+          "closed": "sabato e domenica",
+          "place": "Cañabota"
+        }
+      ]
+    },
+    {
+      "date": "2026-12-29",
+      "label": "Mar 29",
+      "title": "Tutto Triana",
+      "focus": { "lat": 37.3845, "lng": -6.006, "zoom": 15 },
+      "rain": "Mercado coperto + Centro Cerámica + pranzo lungo. Betis solo se smette.",
+      "blocks": [
+        { "when": "Mattina", "place": "Mercado de Triana", "note": "Banchi e barre. Ponte da hotel ~12 min." },
+        { "when": "Mattina", "place": "Calle Alfarería", "note": "Ceramica, senza fretta." },
+        { "when": "Pomeriggio", "place": "Las Golondrinas", "note": "Typical: solomillo, setas." },
+        { "when": "Sera", "place": "Calle Betis", "note": "Fiume e luci. L'altra sera: flamenco o Cañabota." }
+      ],
+      "book": [
+        {
+          "id": "memoria-28",
+          "name": "Casa de la Memoria se non è lunedì",
+          "need": "soon",
+          "url": "https://casadelamemoria.es/",
+          "place": "Casa de la Memoria"
+        }
+      ]
+    },
+    {
+      "date": "2026-12-30",
+      "label": "Mer 30",
+      "title": "Città lenta",
+      "focus": { "lat": 37.381, "lng": -5.99, "zoom": 14 },
+      "rain": "Setas + Archivo + Bellas Artes + tapas. Niente Plaza de España bagnata.",
+      "blocks": [
+        { "when": "Mattina", "place": "Vicoli di Santa Cruz", "note": "Senza la folla del lunedì. Abantal oggi è chiuso." },
+        { "when": "Pomeriggio", "place": "Metropol Parasol (Las Setas)", "note": "Se piove: indoor sotto. Se è chiaro: passerella." },
+        { "when": "Pomeriggio", "place": "Plaza de España al tramonto", "note": "Solo se asciutto." },
+        { "when": "Pomeriggio", "place": "Parque de María Luisa", "note": "Passeggiata corta, poi hotel." }
+      ],
+      "book": []
+    },
+    {
+      "date": "2026-12-31",
+      "label": "Gio 31",
+      "title": "Nochevieja",
+      "focus": { "lat": 37.3885, "lng": -5.9955, "zoom": 15 },
+      "rain": "El Jueves al coperto se regge. Sera: cena prenotata e uvas sotto i portici di Plaza Nueva.",
+      "blocks": [
+        { "when": "Mattina", "place": "El Jueves (antiquariato)", "note": "Calle Feria, solo giovedì. Opzionale, non un monumento." },
+        { "when": "Pomeriggio", "place": "Hotel Petit Palace Puerta de Triana", "note": "Riposo. Niente Alcázar oggi." },
+        { "when": "Sera", "place": "Bodeguita Romero", "note": "Cena prenotata vicino a Plaza Nueva. Chiedi il menu." },
+        { "when": "Sera", "place": "Plaza Nueva (uvas Nochevieja)", "note": "Dodici uva, orologio Ayuntamiento. Poi a piedi in hotel." }
+      ],
+      "book": [
+        {
+          "id": "nye-romero",
+          "name": "Cena 31 · Bodeguita Romero",
+          "need": "now",
+          "forDate": "2026-12-31",
+          "hours": "Chiama, chiedi il menu fisso",
+          "place": "Bodeguita Romero",
+          "note": "Arenal, vicino hotel. Niente tasting."
+        },
+        {
+          "id": "nye-morales",
+          "name": "Cena 31 · Casa Morales",
+          "need": "now",
+          "forDate": "2026-12-31",
+          "hours": "Chiama, chiedi il menu fisso",
+          "place": "Casa Morales",
+          "note": "Arenal, alternativa a Romero."
+        }
+      ]
+    },
+    {
+      "date": "2027-01-01",
+      "label": "Ven 1",
+      "title": "Partenza",
+      "focus": { "lat": 37.386, "lng": -5.998, "zoom": 15 },
+      "rain": "Fiume coperto dai portici, poi taxi. Alcázar e Cattedrale chiusi.",
+      "blocks": [
+        { "when": "Mattina", "place": "Muelle de la Sal / fiume est", "note": "Alcázar chiuso. Cattedrale: visita culturale sospesa." },
+        { "when": "Mattina", "place": "Torre del Oro", "note": "Corta, se è aperta. Poi bagagli." },
+        { "when": "Pomeriggio", "place": "Aeroporto SVQ San Pablo", "note": "Uscire ~14:30–15:00. FR4349 SVQ 17:15.", "walkMin": 25 }
+      ],
+      "book": []
+    }
+  ]
+}

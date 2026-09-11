@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Sevilla — mappa live</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #1e293b; --text: #f1f5f9; --muted: #cbd5e1;
+      --accent: #38bdf8; --border: #334155;
+      --ok: #22c55e; --warn: #f59e0b; --bad: #ef4444;
+      --hi: #3b82f6; --lo: #a78bfa;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: var(--bg); color: var(--text); }
+    #app { display: grid; grid-template-columns: minmax(320px, 400px) 1fr; height: 100%; }
+    #sidebar { overflow: auto; border-right: 1px solid var(--border); background: var(--panel); padding: 0 0 2rem; -webkit-overflow-scrolling: touch; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+    #map { height: 100%; min-height: 42vh; position: relative; }
+    header.site-head { padding: 0.7rem 1rem 0.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); z-index: 3; }
+    header.site-head h1 { margin: 0 0 0.1rem; font-size: 1.02rem; }
+    header.site-head p { margin: 0; font-size: 0.76rem; color: var(--muted); line-height: 1.35; }
+    .zone-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.45rem; }
+    .zone-chips button {
+      border: 1px solid var(--border); background: #0f172a; color: var(--text);
+      border-radius: 999px; padding: 0.28rem 0.55rem; font-size: 0.68rem; cursor: pointer;
+    }
+    .zone-chips button.active { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 700; }
+
+    .live-panel {
+      margin: 0.65rem 0.9rem; padding: 0.75rem; border-radius: 12px;
+      background: #0f172a; border: 1px solid var(--border);
+    }
+    .live-panel h2 { margin: 0 0 0.45rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .comfort-now { display: flex; align-items: baseline; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+    .comfort-now .phase { font-size: 1rem; font-weight: 700; }
+    .comfort-now .level { font-size: 0.85rem; color: var(--accent); }
+    .comfort-bar {
+      height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--bad), var(--warn), var(--ok));
+      position: relative; margin: 0.35rem 0 0.5rem;
+    }
+    .comfort-bar .knob {
+      position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+      border-radius: 50%; background: #fff; border: 2px solid var(--accent);
+      box-shadow: 0 0 0 3px rgba(56,189,248,.25); transition: left .35s ease;
+    }
+    .sun-row { display: flex; gap: 0.4rem; margin-top: 0.5rem; font-size: 0.74rem; flex-wrap: wrap; }
+    .sun-row span { background: #1e293b; border: 1px solid var(--border); border-radius: 999px; padding: 0.22rem 0.5rem; }
+    .advice { margin-top: 0.5rem; font-size: 0.76rem; line-height: 1.4; }
+    .advice .ok { color: var(--ok); } .advice .warn { color: var(--warn); } .advice .bad { color: var(--bad); }
+    .tide-note { margin-top: 0.4rem; font-size: 0.65rem; color: var(--muted); line-height: 1.3; }
+    .live-panel.loading { opacity: 0.75; }
+    .live-panel .err { color: var(--bad); font-size: 0.8rem; }
+
+    .weather-now { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.55rem; }
+    .weather-now .icon { font-size: 1.8rem; line-height: 1; }
+    .weather-now .temp { font-size: 1.35rem; font-weight: 700; }
+    .weather-now .meta { font-size: 0.74rem; color: var(--muted); line-height: 1.35; }
+    .weather-days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.3rem; }
+    .weather-days .day {
+      background: #1e293b; border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.4rem 0.25rem; text-align: center; font-size: 0.68rem;
+    }
+    .weather-days .day .dname { color: var(--muted); font-weight: 600; margin-bottom: 0.15rem; text-transform: capitalize; }
+    .weather-days .day .ico { font-size: 1.15rem; line-height: 1.2; }
+    .weather-days .day .hi { font-weight: 700; color: var(--text); }
+    .weather-days .day .lo { color: var(--muted); }
+    .weather-days .day .rain { color: var(--hi); font-size: 0.62rem; margin-top: 0.15rem; }
+    .weather-hours { display: flex; gap: 0.3rem; overflow-x: auto; margin-top: 0.5rem; padding-bottom: 0.2rem; -webkit-overflow-scrolling: touch; }
+    .weather-hours .h {
+      flex: 0 0 auto; min-width: 3.1rem; background: #1e293b; border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.35rem 0.3rem; text-align: center; font-size: 0.65rem;
+    }
+    .weather-hours .h .t { color: var(--muted); }
+    .weather-hours .h .v { font-weight: 700; margin-top: 0.1rem; }
+
+    .market-panel .day-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.55rem; }
+    .trip-wx { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.25rem; }
+    .trip-wx .day { background: #1e293b; border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.15rem; text-align: center; font-size: 0.62rem; }
+    .trip-wx .day .dname { color: var(--muted); font-weight: 600; }
+    .trip-wx .day .hi { font-weight: 700; }
+    .market-panel .day-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.55rem; }
+    .market-panel .day-tabs button {
+      border: 1px solid var(--border); background: #0f172a; color: var(--text);
+      border-radius: 999px; padding: 0.28rem 0.55rem; font-size: 0.68rem; cursor: pointer;
+    }
+    .market-panel .day-tabs button.active { background: #22c55e; color: #0f172a; border-color: #22c55e; font-weight: 700; }
+    .market-panel .day-tabs button.has { box-shadow: inset 0 0 0 1px rgba(34,197,94,.5); }
+    .market-list { display: flex; flex-direction: column; gap: 0.35rem; max-height: 220px; overflow: auto; }
+    .market-card {
+      background: #1e293b; border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.45rem 0.55rem; cursor: pointer; text-align: left; color: var(--text);
+      width: 100%; font: inherit;
+    }
+    .market-card:hover { border-color: #22c55e; }
+    .market-card.open-now { border-color: rgba(34,197,94,.7); background: rgba(34,197,94,.08); }
+    .market-card .mt { font-size: 0.82rem; font-weight: 700; }
+    .market-card .md { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.3; }
+    .market-card .mh { font-size: 0.72rem; color: #86efac; margin-top: 0.15rem; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border); }
+    .filters button {
+      border: 1px solid var(--border); background: #0f172a; color: var(--text);
+      border-radius: 999px; padding: 0.28rem 0.55rem; font-size: 0.68rem; cursor: pointer;
+    }
+    .filters button.active { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 600; }
+    .filter-actions { display: flex; gap: 0.35rem; padding: 0 0.9rem 0.45rem; }
+    .filter-actions button {
+      border: 1px solid var(--border); background: #0f172a; color: var(--muted);
+      border-radius: 8px; padding: 0.28rem 0.6rem; font-size: 0.68rem; cursor: pointer;
+    }
+    .filter-actions button:hover { color: var(--text); border-color: var(--accent); }
+    .list-meta { padding: 0.45rem 1rem 0; font-size: 0.72rem; color: var(--muted); }
+    .list-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.4rem; flex-wrap: wrap; padding: 0.15rem 0 0;
+    }
+    .list-toolbar .list-meta { padding: 0.45rem 0 0.2rem 1rem; }
+    .list-toolbar .filter-actions { padding: 0.2rem 0.9rem 0.2rem 0; }
+    .cat { padding: 0.65rem 1rem 0.15rem; }
+    .cat-toggle {
+      display: flex; align-items: center; gap: 0.4rem; width: 100%;
+      margin: 0 0 0.4rem; padding: 0.2rem 0; border: 0; background: transparent;
+      font: inherit; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--muted); cursor: pointer; text-align: left;
+    }
+    .cat-toggle:hover { color: var(--text); }
+    .cat-toggle .chev { display: inline-block; width: 0.75rem; color: var(--accent); }
+    .cat-toggle .n { font-weight: 500; opacity: 0.8; }
+    .cat.collapsed .cat-body { display: none; }
+    .cat.collapsed .cat-toggle { margin-bottom: 0; }
+    .item {
+      display: block; width: 100%; text-align: left; border: 0; background: transparent;
+      color: var(--text); padding: 0.45rem 0.3rem; border-radius: 8px; cursor: pointer;
+      border-bottom: 1px solid rgba(51,65,85,0.45);
+    }
+    .item:hover, .item.active { background: #0f172a; }
+    .item .t { font-size: 0.86rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+    .item .d { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.35; }
+    .item a.gmaps { color: var(--accent); font-size: 0.68rem; text-decoration: none; display: inline-block; margin-top: 0.15rem; }
+    .badge { font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 999px; text-transform: uppercase; }
+    .badge.ok { background: rgba(34,197,94,.2); color: var(--ok); }
+    .badge.warn { background: rgba(245,158,11,.2); color: var(--warn); }
+    .badge.bad { background: rgba(239,68,68,.2); color: var(--bad); }
+    .badge.sun { background: rgba(251,146,60,.2); color: #fb923c; }
+    .badge.typical { background: rgba(34,197,94,.2); color: #86efac; }
+    .badge.good { background: rgba(56,189,248,.2); color: #7dd3fc; }
+    .badge.special { background: rgba(234,179,8,.25); color: #fbbf24; }
+    .badge.mkt { background: rgba(34,197,94,.2); color: #86efac; }
+    .badge.mkt-off { background: rgba(148,163,184,.15); color: var(--muted); }
+    .badge.pop { background: rgba(251,191,36,.18); color: #fbbf24; text-transform: none; }
+    .badge.rom { background: rgba(244,114,182,.18); color: #f9a8d4; text-transform: none; }
+    .legend { padding: 0.65rem 1rem; font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+    .popup h3 { margin: 0 0 0.25rem; font-size: 0.95rem; }
+    .popup p { margin: 0 0 0.3rem; font-size: 0.8rem; line-height: 1.4; }
+    .popup .info-box { margin: 0.35rem 0; padding: 0.4rem 0.5rem; border-radius: 8px; background: #f1f5f9; font-size: 0.76rem; line-height: 1.35; }
+    .popup a { color: #0284c7; font-size: 0.78rem; }
+    .map-chip {
+      position: absolute; z-index: 1000; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,.93); color: #fff; border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.38rem 0.8rem; font-size: 0.74rem; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,.35); max-width: 94vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      pointer-events: none;
+    }
+    .map-hint {
+      position: absolute; z-index: 1000; bottom: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,.85); color: var(--muted); border-radius: 8px;
+      padding: 0.3rem 0.6rem; font-size: 0.68rem; pointer-events: none;
+    }
+    .guide-fab {
+      position: absolute; z-index: 1100; right: 14px; bottom: 22px;
+      background: linear-gradient(135deg, #ea580c, #eab308); color: #0f172a;
+      border: 0; border-radius: 999px; padding: 0.7rem 1rem; font-weight: 800;
+      font-size: 0.85rem; cursor: pointer; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+    }
+    .guide-panel {
+      position: absolute; z-index: 1100; right: 12px; bottom: 70px; width: min(400px, 94vw);
+      max-height: min(70vh, 560px); display: none; flex-direction: column;
+      background: #0f172a; border: 1px solid var(--border); border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.5); overflow: hidden;
+    }
+    .guide-panel.open { display: flex; }
+    .guide-panel header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border);
+      background: #1e293b; position: static;
+    }
+    .guide-panel header h3 { margin: 0; font-size: 0.9rem; }
+    .guide-panel header button { border: 0; background: transparent; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
+    .guide-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--border); }
+    .guide-chips button {
+      border: 1px solid var(--border); background: #1e293b; color: var(--text);
+      border-radius: 999px; padding: 0.22rem 0.5rem; font-size: 0.65rem; cursor: pointer;
+    }
+    .guide-panel, .guide-log { overscroll-behavior: contain; }
+    .guide-log { flex: 1; overflow: auto; padding: 0.65rem 0.75rem; font-size: 0.8rem; line-height: 1.45; -webkit-overflow-scrolling: touch; }
+    .guide-log .msg { margin-bottom: 0.65rem; }
+    .guide-log .msg.user { color: var(--accent); }
+    .guide-log .msg.bot { color: var(--text); white-space: pre-wrap; }
+    .guide-log .msg.bot strong { color: #e2e8f0; }
+    .guide-log a { color: #38bdf8; }
+    .guide-form { display: flex; gap: 0.35rem; padding: 0.55rem; border-top: 1px solid var(--border); background: #1e293b; }
+    .guide-form input {
+      flex: 1; border: 1px solid var(--border); border-radius: 10px; background: #0f172a;
+      color: var(--text); padding: 0.55rem 0.65rem; font-size: 0.85rem;
+    }
+    .guide-form button {
+      border: 0; border-radius: 10px; background: var(--accent); color: #0f172a;
+      font-weight: 700; padding: 0 0.85rem; cursor: pointer;
+    }
+    .sheet-grabber {
+      display: none; width: 100%; border: 0; background: transparent; color: var(--text);
+      padding: 0.55rem 1rem 0.35rem; cursor: pointer; text-align: left;
+    }
+    .sheet-grabber .bar {
+      display: block; width: 42px; height: 4px; border-radius: 999px; background: #64748b;
+      margin: 0 auto 0.45rem;
+    }
+    .sheet-grabber .peek { font-size: 0.82rem; font-weight: 600; line-height: 1.3; }
+    .mode-toggle {
+      display: flex; gap: 0; margin: 0.5rem 0 0.45rem; border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .mode-toggle button {
+      flex: 1; border: 0; background: #0f172a; color: var(--muted);
+      min-height: 40px; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+    }
+    .mode-toggle button[aria-pressed="true"] { background: var(--accent); color: #0f172a; }
+    #tripDayTabs {
+      display: flex; flex-wrap: nowrap; gap: 0.3rem; overflow-x: auto;
+      margin: 0; padding: 0.15rem 0 0.1rem; -webkit-overflow-scrolling: touch;
+    }
+    #tripDayTabs button {
+      border: 1px solid var(--border); background: #0f172a; color: var(--text);
+      border-radius: 999px; padding: 0.45rem 0.7rem; font-size: 0.75rem; cursor: pointer;
+      min-height: 40px; white-space: nowrap;
+    }
+    #tripDayTabs button[aria-selected="true"] {
+      background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 700;
+    }
+    #pianoView, #catalogView { padding-bottom: 1rem; }
+    .book-ledger { margin: 0.65rem 0.9rem 0; padding: 0.7rem 0.75rem; border-radius: 12px; background: #0f172a; border: 1px solid var(--border); }
+    .book-ledger h2 { margin: 0 0 0.45rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .book-row {
+      display: flex; align-items: flex-start; gap: 0.5rem; width: 100%;
+      border: 0; background: transparent; color: var(--text); text-align: left;
+      padding: 0.45rem 0; min-height: 44px; font: inherit; border-bottom: 1px solid rgba(51,65,85,.45);
+    }
+    .book-row:last-child { border-bottom: 0; }
+    .book-row input { margin-top: 0.25rem; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); }
+    .book-row .bn { font-weight: 700; font-size: 0.82rem; }
+    .book-row .bd { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+    .book-row a { color: var(--accent); font-size: 0.72rem; }
+    .need { font-size: 0.65rem; font-weight: 700; }
+    .need.now { color: #fbbf24; }
+    .need.soon { color: var(--muted); }
+    .day-card { margin: 0.65rem 0.9rem; padding: 0.7rem 0.75rem; border-radius: 12px; background: #0f172a; border: 1px solid var(--border); }
+    .day-card h2 { margin: 0 0 0.15rem; font-size: 1rem; }
+    .day-card .rain { margin: 0.35rem 0 0.55rem; font-size: 0.74rem; color: #fde68a; line-height: 1.35; }
+    .when-h { margin: 0.65rem 0 0.25rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+    .tl-row {
+      display: block; width: 100%; border: 0; background: transparent; color: var(--text);
+      text-align: left; padding: 0.5rem 0.2rem; min-height: 44px; font: inherit; cursor: pointer;
+      border-radius: 8px;
+    }
+    .tl-row:hover, .tl-row.active { background: #1e293b; }
+    .tl-row .tn { font-weight: 700; font-size: 0.86rem; }
+    .tl-row .td { font-size: 0.74rem; color: var(--muted); margin-top: 0.12rem; line-height: 1.35; }
+    .walk-row {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      font-size: 0.72rem; color: var(--accent); text-decoration: none;
+      padding: 0.35rem 0.2rem; min-height: 36px;
+    }
+    .walk-row:hover { text-decoration: underline; }
+    details.wx-acc {
+      margin: 0.65rem 0.9rem; padding: 0.55rem 0.75rem; border-radius: 12px;
+      background: #0f172a; border: 1px solid var(--border);
+    }
+    details.wx-acc > summary {
+      cursor: pointer; font-size: 0.8rem; font-weight: 700; min-height: 40px;
+      display: flex; align-items: center;
+    }
+    details.wx-acc .wx-block { margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid var(--border); }
+    #catalogView[hidden], #pianoView[hidden] { display: none; }
+    .marker-dim { opacity: 0.28; }
+    .marker-focus { opacity: 1; }
+
+    @media (max-width: 800px) {
+      #app { display: block; }
+      #map { position: fixed; inset: 0; height: 100%; min-height: 100%; }
+      #sidebar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 1050;
+        border-right: 0; border-top: 1px solid var(--border);
+        border-radius: 16px 16px 0 0; padding-bottom: 1.2rem;
+        transition: height .2s ease;
+      }
+      #sidebar.sheet-peek { height: 96px; overflow: hidden; }
+      #sidebar.sheet-half { height: 52vh; }
+      #sidebar.sheet-full { height: 88vh; }
+      .sheet-grabber { display: block; }
+      #tripDayTabs button, .mode-toggle button, .tl-row, .book-row, .cat-toggle, .item,
+      .filter-actions button, .walk-row {
+        min-height: 44px;
+      }
+      .guide-panel { left: 8px; right: 8px; width: auto; bottom: 168px; max-height: 48vh; }
+      #app.sheet-peek .guide-fab { bottom: 112px; }
+      #app.sheet-half .guide-fab { bottom: calc(52vh + 14px); }
+      #app.sheet-full .guide-fab { bottom: calc(88vh + 10px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="sheet-peek">
+    <aside id="sidebar" class="sheet-peek">
+      <button type="button" class="sheet-grabber" id="sheetGrabber" aria-expanded="false" aria-controls="sidebar">
+        <span class="bar" aria-hidden="true"></span>
+        <span class="peek" id="sheetPeek">Piano · 27 dic–1 gen</span>
+      </button>
+      <header class="site-head">
+        <h1>Sevilla · coppia</h1>
+        <p id="tripBody">Petit Palace Puerta de Triana · 27 dic 2026 – 1 gen 2027</p>
+        <div class="mode-toggle" role="group" aria-label="Vista">
+          <button type="button" id="btnPiano" aria-pressed="true">Piano</button>
+          <button type="button" id="btnCatalogo" aria-pressed="false">Catalogo</button>
+        </div>
+        <div id="tripDayTabs" role="tablist" aria-label="Giorni del soggiorno"></div>
+      </header>
+
+      <div id="pianoView">
+        <div class="book-ledger" id="bookLedger"></div>
+        <div class="day-card" id="dayTimeline" tabindex="-1"></div>
+        <details class="wx-acc" id="wxAccordion">
+          <summary id="wxSummary">Meteo e cammino</summary>
+          <div class="wx-block live-panel loading" id="comfortPanel">
+            <h2 id="comfortTitle">Cammino ora</h2>
+            <div id="comfortBody">Caricamento…</div>
+          </div>
+          <div class="wx-block live-panel loading" id="weatherPanel">
+            <h2 id="weatherTitle">Meteo live</h2>
+            <div id="weatherBody">Caricamento…</div>
+            <p class="tide-note">ICON-EU (DWD ~7 km). ICON-D2 non copre Siviglia.</p>
+          </div>
+          <div class="wx-block live-panel" id="tripWxPanel">
+            <h2 id="tripWxTitle">Settimana di viaggio</h2>
+            <div id="tripWxBody">Caricamento clima…</div>
+            <p class="tide-note" id="tripWxNote"></p>
+          </div>
+        </details>
+      </div>
+
+      <div id="catalogView" hidden>
+        <p class="list-meta" id="viewMeta">Catalogo sulla mappa visibile.</p>
+        <div class="zone-chips" id="zoneChips"></div>
+        <p class="list-meta" id="zoneLabel"></p>
+        <div class="live-panel market-panel" id="marketPanel">
+          <h2 id="marketTitle">Mercati</h2>
+          <div class="day-tabs" id="marketDayTabs"></div>
+          <div class="market-list" id="marketList">Caricamento…</div>
+          <p class="tide-note">Banchi lun–sab mattina. El Jueves = solo giovedì.</p>
+        </div>
+        <div class="filters" id="filters"></div>
+        <div class="filter-actions" id="filterActions">
+          <button type="button" id="btnAllOn">Seleziona tutto</button>
+          <button type="button" id="btnAllOff">Deseleziona tutto</button>
+        </div>
+        <div class="list-toolbar">
+          <div class="list-meta" id="listMeta"></div>
+          <div class="filter-actions" id="listFoldActions">
+            <button type="button" id="btnFoldOpen">Apri tutto</button>
+            <button type="button" id="btnFoldClose">Chiudi tutto</button>
+          </div>
+        </div>
+        <div id="list"></div>
+        <div class="legend">
+          Punteggi 1–5: pop = famoso, rom = da coppia. Anello tapas = typical / good / special.
+        </div>
+      </div>
+    </aside>
+    <div id="map">
+      <div class="map-chip" id="mapChip">Sevilla…</div>
+      <div class="guide-panel" id="guidePanel" aria-label="Guida turistica">
+        <header>
+          <h3>Guida Sevilla</h3>
+          <button type="button" id="guideClose" aria-label="Chiudi">×</button>
+        </header>
+        <div class="guide-chips" id="guideChips"></div>
+        <div class="guide-log" id="guideLog"></div>
+        <form class="guide-form" id="guideForm">
+          <input id="guideInput" type="text" placeholder="Es. piano del soggiorno, lunedì, tapas" autocomplete="off" />
+          <button type="submit">Vai</button>
+        </form>
+      </div>
+      <button type="button" class="guide-fab" id="guideFab">Guida</button>
+    </div>
+  </div>
+
+  <script src="agent/trip.js"></script>
+  <script src="agent/guide_engine.js"></script>
+  <script>
+    const TZ = "Europe/Madrid";
+    const HOTEL = { lat: 37.38869, lng: -5.99963 };
+    let PLACES = window.PLACES = [];
+
+    const categories = [
+      { id: "you", label: "Hotel", color: "#ef4444" },
+      { id: "monument", label: "Monumenti", color: "#a855f7" },
+      { id: "mirador", label: "Tramonti", color: "#fb923c" },
+      { id: "market", label: "Mercati", color: "#22c55e" },
+      { id: "tapas", label: "Tapas", color: "#eab308" },
+      { id: "food", label: "Special", color: "#f59e0b" },
+      { id: "flamenco", label: "Flamenco", color: "#f43f5e" },
+      { id: "walk", label: "Passeggiate", color: "#14b8a6" },
+      { id: "park", label: "Parchi", color: "#16a34a" },
+      { id: "shop", label: "Cerámica", color: "#ec4899" },
+      { id: "ev", label: "EV", color: "#10b981" },
+      { id: "daytrip", label: "Day trip", color: "#64748b" },
+    ];
+
+    const ZONES = [
+      { id: "arenal", name: "Arenal / hotel", lat: 37.3887, lng: -5.9997, zoom: 15,
+        test: (la, ln) => la >= 37.384 && la < 37.392 && ln >= -6.002 && ln < -5.994 },
+      { id: "santacruz", name: "Santa Cruz / Catedral", lat: 37.3855, lng: -5.9915, zoom: 16,
+        test: (la, ln) => la >= 37.381 && la < 37.391 && ln >= -5.994 && ln < -5.986 },
+      { id: "triana", name: "Triana / Remedios", lat: 37.3845, lng: -6.006, zoom: 15,
+        test: (la, ln) => ln < -6.002 && la >= 37.368 && la < 37.40 },
+      { id: "alameda", name: "Alameda / Macarena", lat: 37.399, lng: -5.994, zoom: 15,
+        test: (la, ln) => la >= 37.393 && la < 37.42 && ln >= -6.002 && ln < -5.985 },
+      { id: "luisa", name: "María Luisa / Plaza España", lat: 37.377, lng: -5.988, zoom: 15,
+        test: (la, ln) => la < 37.381 && la >= 37.368 && ln >= -6.00 && ln < -5.98 },
+      { id: "city", name: "Sevilla città", lat: 37.388, lng: -5.995, zoom: 13,
+        test: (la, ln) => la >= 37.35 && la < 37.43 && ln >= -6.04 && ln < -5.94 },
+      { id: "trips", name: "Day trip", lat: 37.25, lng: -5.85, zoom: 8 },
+    ];
+
+    let weatherState = null;
+    let tripWxState = null;
+    let weatherLat = null, weatherLng = null;
+    let sunLat = HOTEL.lat, sunLng = HOTEL.lng;
+    let visibleIds = new Set();
+    let activeCats = new Set(categories.map(c => c.id));
+    let moveTimer = null;
+    let activeZoneId = "arenal";
+    let marketDayFilter = "all";
+    let map, markers = [];
+    let dayLine = null;
+    let ITINERARY = window.ITINERARY = { days: [] };
+    let selectedDayDate = null;
+    let sidebarMode = "piano";
+    let sheetDetent = "peek";
+    let bookedSet = new Set((() => {
+      try { return JSON.parse(localStorage.getItem("sevilla-booked") || "[]"); }
+      catch { return []; }
+    })());
+    let collapsedCats = new Set((() => {
+      try { return JSON.parse(localStorage.getItem("sevilla-collapsed") || "[]"); }
+      catch { return []; }
+    })());
+
+    function wmoInfo(code) {
+      const c = code ?? 0;
+      if (c === 0) return { icon: "☀️", label: "Sereno" };
+      if (c === 1) return { icon: "🌤️", label: "Preval. sereno" };
+      if (c === 2) return { icon: "⛅", label: "Parz. nuvoloso" };
+      if (c === 3) return { icon: "☁️", label: "Nuvoloso" };
+      if (c >= 51 && c < 70) return { icon: "🌧️", label: "Pioggia" };
+      if (c >= 80) return { icon: "⛈️", label: "Rovesci" };
+      return { icon: "🌡️", label: "Variabile" };
+    }
+
+    const DAY_NAMES = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+    const DAY_NAMES_LONG = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+
+    function madridNowParts() {
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit",
+        day: "numeric", month: "numeric", hour12: false,
+      }).formatToParts(new Date());
+      const get = (t) => parts.find(p => p.type === t)?.value;
+      const mapW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      const day = mapW[get("weekday")] ?? new Date().getDay();
+      const hour = parseInt(get("hour"), 10);
+      const minute = parseInt(get("minute"), 10);
+      const month = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, month: "numeric" }).format(new Date()), 10);
+      return { day, hour, minute, month, minutes: hour * 60 + minute };
+    }
+
+    function marketOpenOnDay(p, day) {
+      if (!p.days) return true;
+      return p.days.includes(day);
+    }
+    function marketIsOpenNow(p, nowParts) {
+      if (!marketOpenOnDay(p, nowParts.day)) return false;
+      if (p.openFrom == null || p.openTo == null) return true;
+      return nowParts.minutes >= p.openFrom && nowParts.minutes < p.openTo;
+    }
+    function formatMarketDays(p) {
+      if (!p.days) return "giorni variabili";
+      return p.days.map(d => DAY_NAMES[d]).join(" · ");
+    }
+    function marketStatusBadge(p) {
+      const now = madridNowParts();
+      if (marketIsOpenNow(p, now)) return { cls: "mkt", text: "aperto ora" };
+      if (marketOpenOnDay(p, now.day)) return { cls: "mkt", text: "oggi" };
+      return { cls: "mkt-off", text: formatMarketDays(p) };
+    }
+
+    function renderMarketPanel() {
+      const now = madridNowParts();
+      const titleDay = marketDayFilter === "all" ? "settimana" : DAY_NAMES_LONG[marketDayFilter];
+      document.getElementById("marketTitle").textContent = `Mercati · ${titleDay}`;
+      const tabs = document.getElementById("marketDayTabs");
+      const seen = new Set();
+      const tabsClean = [];
+      for (const t of [{ id: "all", label: "Tutti" }, ...DAY_NAMES.map((n, i) => ({ id: i, label: n }))]) {
+        const key = String(t.id);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        tabsClean.push(t);
+      }
+      const daysWith = new Set();
+      PLACES.filter(p => p.cat === "market").forEach(p => (p.days || []).forEach(d => daysWith.add(d)));
+      tabs.innerHTML = "";
+      tabsClean.forEach(t => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = t.label;
+        btn.dataset.day = String(t.id);
+        const has = t.id === "all" || daysWith.has(t.id);
+        if (has) btn.classList.add("has");
+        if (String(marketDayFilter) === String(t.id)) btn.classList.add("active");
+        btn.addEventListener("click", () => {
+          const v = btn.dataset.day;
+          marketDayFilter = v === "all" ? "all" : parseInt(v, 10);
+          applyVisibility();
+        });
+        tabs.appendChild(btn);
+      });
+
+      const list = document.getElementById("marketList");
+      const b = map.getBounds().pad(0.35);
+      const rows = PLACES.filter(p => p.cat === "market").filter(p => {
+        if (marketDayFilter !== "all" && marketDayFilter != null) {
+          if (!marketOpenOnDay(p, marketDayFilter)) return false;
+        }
+        return true;
+      }).sort((a, b2) => {
+        const av = b.contains([a.lat, a.lng]) ? 0 : 1;
+        const bv = b.contains([b2.lat, b2.lng]) ? 0 : 1;
+        if (av !== bv) return av - bv;
+        return (a.priority || 2) - (b2.priority || 2);
+      });
+      list.innerHTML = rows.map(p => {
+        const open = marketIsOpenNow(p, now);
+        const badge = marketStatusBadge(p);
+        return `<button type="button" class="market-card${open ? " open-now" : ""}" data-lat="${p.lat}" data-lng="${p.lng}" data-cat="${esc(p.cat)}">
+          <div class="mt">${esc(p.name)} <span class="badge ${esc(badge.cls)}">${esc(badge.text)}</span></div>
+          <div class="md">${esc(p.desc || "")}</div>
+          <div class="mh">${esc(p.hours || "")} · ${esc(p.place || "")}</div>
+        </button>`;
+      }).join("") || `<p class="tide-note">Nessun mercato per questo filtro.</p>`;
+      list.querySelectorAll(".market-card").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const lat = +btn.dataset.lat, lng = +btn.dataset.lng;
+          const cat = btn.dataset.cat;
+          const idx = PLACES.findIndex(p => p.lat === lat && p.lng === lng && p.cat === cat);
+          map.setView([lat, lng], Math.max(map.getZoom(), 15));
+          if (idx >= 0 && markers[idx]) markers[idx].openPopup();
+        });
+      });
+    }
+
+    function fmtTime(d) {
+      return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
+    }
+    function parseLocalISO(iso) {
+      const [date, time] = iso.split("T");
+      const [y, m, day] = date.split("-").map(Number);
+      const [hh, mm] = (time || "12:00").split(":").map(Number);
+      return new Date(y, m - 1, day, hh, mm);
+    }
+    function gmapsUrl(p) {
+      return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
+    }
+    function gmapsDirUrl(from, to, mode) {
+      return "https://www.google.com/maps/dir/?api=1"
+        + `&origin=${from.lat},${from.lng}`
+        + `&destination=${to.lat},${to.lng}`
+        + `&travelmode=${mode === "driving" ? "driving" : "walking"}`;
+    }
+    function isAirportPlace(p) {
+      return /aeroport/i.test(p?.name || "");
+    }
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+    function safeHttpUrl(u) {
+      if (!u) return "";
+      try {
+        const x = new URL(u, "https://example.invalid");
+        if (x.protocol === "https:" || x.protocol === "http:") return x.href;
+      } catch { /* ignore */ }
+      return "";
+    }
+    function safeTelHref(t) {
+      const s = String(t || "").replace(/[^\d+]/g, "");
+      return s ? `tel:${s}` : "";
+    }
+    function sunTimes(lat, lng, date = new Date()) {
+      const t = SunCalc.getTimes(date, lat, lng);
+      return {
+        sunrise: t.sunrise,
+        sunset: t.sunset,
+        goldenStart: t.goldenHour,
+        goldenEnd: t.goldenHourEnd,
+      };
+    }
+    function haversineKm(a, b, c, d) {
+      const R = 6371, toR = Math.PI / 180;
+      const dLat = (c - a) * toR, dLng = (d - b) * toR;
+      const x = Math.sin(dLat / 2) ** 2 + Math.cos(a * toR) * Math.cos(c * toR) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(x));
+    }
+    function zoneAt(lat, lng) {
+      for (const z of ZONES) {
+        if (z.test && z.test(lat, lng)) return z;
+      }
+      return ZONES[ZONES.length - 1];
+    }
+    function walkComfort(temp, uv, hour, precip = 0) {
+      let score = 100;
+      if (temp < 8) score -= (8 - temp) * 5;
+      if (temp > 26) score -= (temp - 26) * 6;
+      if (temp > 32) score -= (temp - 32) * 4;
+      if (uv != null && uv >= 7) score -= 15;
+      if (hour >= 13 && hour <= 17 && temp > 28) score -= 10;
+      if (precip > 0.1) score -= 25;
+      return Math.max(0, Math.min(100, Math.round(score)));
+    }
+    function windArrow(deg) {
+      if (deg == null) return "";
+      const dirs = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+      return dirs[Math.round(deg / 45) % 8];
+    }
+
+    async function loadWeather(lat, lng, force = false) {
+      if (!force && weatherLat != null && haversineKm(weatherLat, weatherLng, lat, lng) < 6) {
+        renderComfortPanel();
+        return;
+      }
+      document.getElementById("weatherPanel").classList.add("loading");
+      document.getElementById("comfortPanel").classList.add("loading");
+      const z = zoneAt(lat, lng);
+      document.getElementById("weatherTitle").textContent = `Meteo · ${z.name}`;
+      try {
+        const url = (window.SevillaTrip
+          ? window.SevillaTrip.liveWeatherUrl(lat, lng)
+          : `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}` +
+            `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,precipitation,uv_index` +
+            `&hourly=temperature_2m,weather_code,precipitation_probability,uv_index` +
+            `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,uv_index_max` +
+            `&forecast_days=5&timezone=Europe%2FMadrid&models=icon_eu`);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        weatherState = await res.json();
+        weatherLat = lat;
+        weatherLng = lng;
+        sunLat = lat;
+        sunLng = lng;
+        renderWeatherPanel();
+        renderComfortPanel();
+        if (!tripWxState) loadTripWeather();
+      } catch (err) {
+        document.getElementById("weatherPanel").classList.remove("loading");
+        document.getElementById("comfortPanel").classList.remove("loading");
+        document.getElementById("weatherBody").innerHTML = `<p class="err">Errore meteo: ${esc(err.message)}</p>`;
+        document.getElementById("comfortBody").innerHTML = `<p class="err">Niente dati caldo.</p>`;
+      }
+    }
+
+    function renderComfortPanel() {
+      const panel = document.getElementById("comfortPanel");
+      const body = document.getElementById("comfortBody");
+      panel.classList.remove("loading");
+      const z = zoneAt(sunLat, sunLng);
+      document.getElementById("comfortTitle").textContent = `Cammino · ${z.name}`;
+      const sun = sunTimes(sunLat, sunLng);
+      const now = madridNowParts();
+      const cur = weatherState?.current;
+      const temp = cur?.apparent_temperature ?? cur?.temperature_2m;
+      const uv = cur?.uv_index;
+      const precip = cur?.precipitation ?? 0;
+      const score = temp != null ? walkComfort(temp, uv, now.hour, precip) : 50;
+      let label = "Cammino ok";
+      if (precip > 0.1) label = "Pioggia: indoor";
+      else if (temp != null && temp < 8) label = "Freddo: strati";
+      else if (score < 40) label = "Cerca ombra / indoor";
+      else if (score < 65) label = "Cammina con pause";
+      const lines = [];
+      if (precip > 0.1) lines.push({ cls: "warn", t: "Pioggia ora: museo, mercado coperto, tapas al chiuso." });
+      else if (temp != null && temp < 12) lines.push({ cls: "ok", t: "Inverno mite: cammina. Giacca leggera." });
+      else if (score >= 65) lines.push({ cls: "ok", t: "Buono per piedi e tapas crawl." });
+      else if (score >= 40) lines.push({ cls: "warn", t: "Ombra e acqua se è estate; a dicembre di solito non serve." });
+      else lines.push({ cls: "bad", t: "Picco di caldo: mercado, museo, hotel." });
+      if (now.hour < 12) lines.push({ cls: "ok", t: "Mattina: Alcázar / Cattedrale se avete lo slot (non il 1° gen)." });
+      else if (now.hour >= 13 && now.hour <= 17 && temp > 28) lines.push({ cls: "warn", t: "13–17 d'estate: indoor." });
+      else lines.push({ cls: "ok", t: "Pomeriggio/sera: fiume, Plaza de España, Triana." });
+      body.innerHTML = `
+        <div class="comfort-now">
+          <span class="phase">${label}</span>
+          <span class="level">${score}/100${temp != null ? ` · percepita ${Math.round(temp)}°` : ""}${uv != null ? ` · UV ${uv}` : ""}</span>
+        </div>
+        <div class="comfort-bar"><div class="knob" style="left:${score}%"></div></div>
+        <div class="sun-row">
+          <span>Alba ${fmtTime(sun.sunrise)}</span>
+          <span>Tramonto ${fmtTime(sun.sunset)}</span>
+          <span>Golden ${fmtTime(sun.goldenStart)}</span>
+        </div>
+        <div class="advice">${lines.map(a => `<div class="${a.cls}">${a.t}</div>`).join("")}</div>`;
+      const chip = document.getElementById("mapChip");
+      let chipTxt = `${label} · ${z.name} · tramonto ${fmtTime(sun.sunset)}`;
+      if (cur) {
+        const wi = wmoInfo(cur.weather_code);
+        chipTxt += ` · ${wi.icon} ${Math.round(cur.temperature_2m)}°`;
+      }
+      chip.textContent = chipTxt;
+      const sum = document.getElementById("wxSummary");
+      if (sum && cur) {
+        const wi = wmoInfo(cur.weather_code);
+        const pop = weatherState?.daily?.precipitation_probability_max?.[0];
+        sum.textContent = `Oggi ${Math.round(cur.temperature_2m)}° · ${wi.label}${pop != null ? ` · pioggia ${pop}%` : ""} · ${label}`;
+      }
+    }
+
+    function renderWeatherPanel() {
+      const panel = document.getElementById("weatherPanel");
+      const body = document.getElementById("weatherBody");
+      panel.classList.remove("loading");
+      if (!weatherState) return;
+      const z = zoneAt(weatherLat, weatherLng);
+      document.getElementById("weatherTitle").textContent = `Meteo · ${z.name}`;
+      const cur = weatherState.current;
+      const daily = weatherState.daily;
+      const hourly = weatherState.hourly;
+      const w = wmoInfo(cur.weather_code);
+      const feel = cur.apparent_temperature != null ? Math.round(cur.apparent_temperature) : "—";
+      const wind = cur.wind_speed_10m != null ? Math.round(cur.wind_speed_10m) : "—";
+      const hum = cur.relative_humidity_2m != null ? Math.round(cur.relative_humidity_2m) : "—";
+      const precip = cur.precipitation != null ? cur.precipitation : 0;
+      const now = new Date();
+      const hourCards = [];
+      for (let i = 0; i < hourly.time.length && hourCards.length < 12; i++) {
+        const t = parseLocalISO(hourly.time[i]);
+        if (t < now - 30 * 60000) continue;
+        const wi = wmoInfo(hourly.weather_code[i]);
+        const pop = hourly.precipitation_probability?.[i];
+        hourCards.push(`<div class="h">
+          <div class="t">${fmtTime(t)}</div>
+          <div class="ico">${wi.icon}</div>
+          <div class="v">${Math.round(hourly.temperature_2m[i])}°</div>
+          <div class="t">${pop != null ? pop + "%" : ""}</div>
+        </div>`);
+      }
+      const dayCards = daily.time.slice(0, 5).map((d, i) => {
+        const wi = wmoInfo(daily.weather_code[i]);
+        const name = i === 0 ? "Oggi" : parseLocalISO(d + "T12:00").toLocaleDateString("it-IT", {
+          weekday: "short", timeZone: TZ,
+        });
+        const rain = daily.precipitation_sum[i];
+        const pop = daily.precipitation_probability_max?.[i];
+        return `<div class="day">
+          <div class="dname">${name}</div>
+          <div class="ico">${wi.icon}</div>
+          <div class="hi">${Math.round(daily.temperature_2m_max[i])}°</div>
+          <div class="lo">${Math.round(daily.temperature_2m_min[i])}°</div>
+          <div class="rain">${rain > 0.05 ? rain.toFixed(1) + " mm" : (pop ? pop + "% 💧" : "—")}</div>
+        </div>`;
+      }).join("");
+      body.innerHTML = `
+        <div class="weather-now">
+          <div class="icon">${w.icon}</div>
+          <div>
+            <div class="temp">${Math.round(cur.temperature_2m)}° · ${w.label}</div>
+            <div class="meta">Percepita ${feel}° · Umidità ${hum}% · Vento ${wind} km/h ${windArrow(cur.wind_direction_10m)}${precip > 0 ? ` · Pioggia ${precip} mm` : ""}${cur.uv_index != null ? ` · UV ${cur.uv_index}` : ""}</div>
+          </div>
+        </div>
+        <div class="weather-days">${dayCards}</div>
+        <div class="weather-hours">${hourCards.join("")}</div>
+        <p class="tide-note" style="margin:0.45rem 0 0">Modello: ICON-EU (DWD)</p>`;
+    }
+
+    function itineraryDays() {
+      return ITINERARY.days || [];
+    }
+    function selectedDay() {
+      return itineraryDays().find(d => d.date === selectedDayDate) || itineraryDays()[0] || null;
+    }
+    function findPlace(name) {
+      if (!name) return null;
+      const i = PLACES.findIndex(p => p.name === name);
+      return i >= 0 ? { p: PLACES[i], i } : null;
+    }
+    function walkMinBetween(a, b) {
+      if (!a || !b) return null;
+      const km = haversineKm(a.lat, a.lng, b.lat, b.lng);
+      return Math.max(1, Math.round((km / 4.5) * 60));
+    }
+    function persistBooked() {
+      localStorage.setItem("sevilla-booked", JSON.stringify([...bookedSet]));
+    }
+    function allBookItems() {
+      const seen = new Set();
+      const out = [];
+      itineraryDays().forEach(d => (d.book || []).forEach(b => {
+        if (seen.has(b.id || b.name)) return;
+        seen.add(b.id || b.name);
+        out.push(b);
+      }));
+      return out.sort((a, b) => {
+        const rank = { now: 0, soon: 1, optional: 2 };
+        return (rank[a.need] ?? 3) - (rank[b.need] ?? 3);
+      });
+    }
+    function nextOpenBook() {
+      return allBookItems().find(b => b.need === "now" && !bookedSet.has(b.id || b.name));
+    }
+    function updateSheetPeek() {
+      const d = selectedDay();
+      const nb = nextOpenBook();
+      const el = document.getElementById("sheetPeek");
+      if (!el || !d) return;
+      el.textContent = nb ? `${d.label} · ${d.title} · prenota ${nb.name}` : `${d.label} · ${d.title}`;
+    }
+    function setSidebarMode(mode) {
+      sidebarMode = mode;
+      document.getElementById("btnPiano").setAttribute("aria-pressed", mode === "piano" ? "true" : "false");
+      document.getElementById("btnCatalogo").setAttribute("aria-pressed", mode === "catalogo" ? "true" : "false");
+      document.getElementById("pianoView").hidden = mode !== "piano";
+      document.getElementById("catalogView").hidden = mode !== "catalogo";
+      if (mode === "catalogo") applyVisibility();
+      applyDayFocus();
+    }
+    function setSheetDetent(next) {
+      sheetDetent = next;
+      const side = document.getElementById("sidebar");
+      const app = document.getElementById("app");
+      ["peek", "half", "full"].forEach(d => {
+        side.classList.toggle("sheet-" + d, d === next);
+        app.classList.toggle("sheet-" + d, d === next);
+      });
+      document.getElementById("sheetGrabber").setAttribute("aria-expanded", next !== "peek" ? "true" : "false");
+      if (map) setTimeout(() => map.invalidateSize(), 220);
+    }
+    function cycleSheet() {
+      setSheetDetent(sheetDetent === "peek" ? "half" : sheetDetent === "half" ? "full" : "peek");
+    }
+    function renderTripPanel() {
+      const T = window.SevillaTrip;
+      const days = itineraryDays().length ? itineraryDays() : (T ? T.TRIP.days : []);
+      if (!days.length) return;
+      const today = T ? T.ymdInMadrid() : null;
+      const left = T ? T.daysUntil(T.TRIP.start) : null;
+      const body = document.getElementById("tripBody");
+      const wait = left != null && left > 0 ? ` · mancano ${left} giorni` : "";
+      body.textContent = `Petit Palace Puerta de Triana · 27 dic 2026 – 1 gen 2027${wait}`;
+      if (!selectedDayDate) {
+        const q = new URLSearchParams(location.search).get("day");
+        if (q && days.some(d => d.date === q)) selectedDayDate = q;
+        else selectedDayDate = days.some(d => d.date === today) ? today : days[0].date;
+      }
+      const tabs = document.getElementById("tripDayTabs");
+      tabs.innerHTML = "";
+      days.forEach((d, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "tab-" + d.date;
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", d.date === selectedDayDate ? "true" : "false");
+        btn.setAttribute("tabindex", d.date === selectedDayDate ? "0" : "-1");
+        btn.textContent = d.label;
+        btn.addEventListener("click", () => selectDay(d.date, true));
+        btn.addEventListener("keydown", (e) => {
+          if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+          e.preventDefault();
+          const n = e.key === "ArrowRight" ? (idx + 1) % days.length : (idx - 1 + days.length) % days.length;
+          selectDay(days[n].date, true);
+          document.getElementById("tab-" + days[n].date)?.focus();
+        });
+        tabs.appendChild(btn);
+      });
+      renderDayCard();
+      renderBookLedger();
+      updateSheetPeek();
+    }
+    function selectDay(date, focusMap) {
+      selectedDayDate = date;
+      renderTripPanel();
+      const card = document.getElementById("dayTimeline");
+      card?.focus({ preventScroll: true });
+      if (focusMap !== false) applyDayFocus(true);
+    }
+    function renderBookLedger() {
+      const box = document.getElementById("bookLedger");
+      const items = allBookItems();
+      if (!items.length) {
+        box.innerHTML = "<h2>Prenota</h2><p class=\"tide-note\">Niente da prenotare su questo soggiorno oltre i voli.</p>";
+        return;
+      }
+      box.innerHTML = `<h2>Prenota ora</h2>` + items.map(b => {
+        const id = b.id || b.name;
+        const checked = bookedSet.has(id);
+        const needLab = b.need === "now" ? "Prenota ora" : b.need === "soon" ? "Presto" : "Opzionale";
+        const href = safeHttpUrl(b.url);
+        const tel = safeTelHref(b.tel);
+        const link = href
+          ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">Sito ufficiale</a>`
+          : (tel ? `<a href="${esc(tel)}">Chiama ${esc(b.tel)}</a>` : "");
+        const extra = [b.hours, b.closed ? `chiuso: ${b.closed}` : "", b.note].filter(Boolean).join(" · ");
+        return `<label class="book-row">
+          <input type="checkbox" data-book="${esc(id)}" ${checked ? "checked" : ""}>
+          <span><span class="need ${esc(b.need || "")}">${needLab}</span>
+          <div class="bn">${esc(b.name)}</div>
+          <div class="bd">${esc(extra)}</div>
+          ${link}</span></label>`;
+      }).join("");
+      box.querySelectorAll("input[data-book]").forEach(inp => {
+        inp.addEventListener("change", () => {
+          const id = inp.dataset.book;
+          if (inp.checked) bookedSet.add(id); else bookedSet.delete(id);
+          persistBooked();
+          updateSheetPeek();
+        });
+      });
+    }
+    function renderDayCard() {
+      const d = selectedDay();
+      const card = document.getElementById("dayTimeline");
+      if (!d || !card) return;
+      const blocks = d.blocks || [];
+      let html = `<h2>${esc(d.label)} · ${esc(d.title)}</h2>`;
+      if (d.rain) html += `<p class="rain">Se piove: ${esc(d.rain)}</p>`;
+      let lastPlace = null;
+      let lastWhen = "";
+      blocks.forEach((bl, idx) => {
+        if (bl.when && bl.when !== lastWhen) {
+          html += `<div class="when-h">${esc(bl.when)}</div>`;
+          lastWhen = bl.when;
+        }
+        const found = findPlace(bl.place);
+        if (idx > 0 && lastPlace && found) {
+          const air = isAirportPlace(lastPlace) || isAirportPlace(found.p);
+          let explicit = bl.walkMin;
+          if (explicit == null && air) explicit = blocks[idx - 1].walkMin;
+          const mins = explicit != null ? explicit : walkMinBetween(lastPlace, found.p);
+          const mode = air || (explicit != null && explicit >= 20) ? "driving" : "walking";
+          const how = mode === "driving" ? "in auto / taxi" : "a piedi";
+          html += `<a class="walk-row" href="${gmapsDirUrl(lastPlace, found.p, mode)}" target="_blank" rel="noopener noreferrer">`
+            + `${mins} min ${how} · Maps</a>`;
+        }
+        const i = found ? found.i : "";
+        html += `<button type="button" class="tl-row" data-i="${i}" data-place="${esc(bl.place || "")}">
+          <div class="tn">${esc(bl.place || "")}</div>
+          <div class="td">${esc(bl.note || "")}</div>
+        </button>`;
+        if (found) lastPlace = found.p;
+      });
+      card.innerHTML = html;
+      card.querySelectorAll(".tl-row").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const i = btn.dataset.i === "" ? -1 : +btn.dataset.i;
+          focusPlaceIndex(i, true);
+          card.querySelectorAll(".tl-row").forEach(r => r.classList.toggle("active", r === btn));
+          if (window.matchMedia("(max-width: 800px)").matches && sheetDetent === "peek") setSheetDetent("half");
+        });
+      });
+    }
+    function dayPlaceIndexes() {
+      const d = selectedDay();
+      if (!d) return new Set();
+      const ids = new Set();
+      (d.blocks || []).forEach(bl => {
+        const f = findPlace(bl.place);
+        if (f) ids.add(f.i);
+      });
+      (d.book || []).forEach(b => {
+        const f = findPlace(b.place);
+        if (f) ids.add(f.i);
+      });
+      const hotel = findPlace("Hotel Petit Palace Puerta de Triana");
+      if (hotel) ids.add(hotel.i);
+      return ids;
+    }
+    function applyDayFocus(fit) {
+      if (!map || !markers.length) return;
+      const ids = dayPlaceIndexes();
+      markers.forEach((m, i) => {
+        const el = m.getElement();
+        const on = ids.has(i);
+        if (el) {
+          el.classList.toggle("marker-dim", sidebarMode === "piano" && !on);
+          el.classList.toggle("marker-focus", on);
+        }
+        m.setZIndexOffset(on ? 500 : 0);
+        if (on && !map.hasLayer(m)) m.addTo(map);
+      });
+      if (dayLine) {
+        map.removeLayer(dayLine);
+        dayLine = null;
+      }
+      const d = selectedDay();
+      const pts = [];
+      (d?.blocks || []).forEach(bl => {
+        const f = findPlace(bl.place);
+        if (f) pts.push([f.p.lat, f.p.lng]);
+      });
+      if (pts.length >= 2) {
+        dayLine = L.polyline(pts, {
+          color: "#38bdf8", weight: 3, opacity: 0.85, dashArray: "6 8",
+        }).addTo(map);
+      }
+      if (fit && (pts.length || d?.focus)) {
+        if (pts.length >= 2 && dayLine) map.fitBounds(dayLine.getBounds(), { padding: [40, 40], maxZoom: 16 });
+        else if (d?.focus) map.setView([d.focus.lat, d.focus.lng], d.focus.zoom || 15);
+      }
+    }
+    function focusPlaceIndex(i, open) {
+      if (i < 0 || !PLACES[i] || !markers[i]) return;
+      const p = PLACES[i];
+      map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15));
+      if (open) markers[i].openPopup();
+      highlightTimeline(p.name);
+      const listBtn = document.querySelector(`#list .item[data-i="${i}"]`);
+      if (listBtn && sidebarMode === "catalogo") {
+        listBtn.scrollIntoView({ block: "nearest" });
+        document.querySelectorAll("#list .item").forEach(b => b.classList.toggle("active", b === listBtn));
+      }
+    }
+    function highlightTimeline(name) {
+      let row = null;
+      document.querySelectorAll("#dayTimeline .tl-row").forEach(r => {
+        const on = r.dataset.place === name;
+        r.classList.toggle("active", on);
+        if (on) row = r;
+      });
+      row?.scrollIntoView({ block: "nearest" });
+    }
+    function initChrome() {
+      document.getElementById("btnPiano").addEventListener("click", () => setSidebarMode("piano"));
+      document.getElementById("btnCatalogo").addEventListener("click", () => setSidebarMode("catalogo"));
+      document.getElementById("sheetGrabber").addEventListener("click", cycleSheet);
+      const side = document.getElementById("sidebar");
+      const app = document.getElementById("app");
+      if (typeof L !== "undefined" && side) {
+        L.DomEvent.disableScrollPropagation(side);
+        L.DomEvent.disableClickPropagation(side);
+      }
+      const applySheetLayout = () => {
+        const mobile = window.matchMedia("(max-width: 800px)").matches;
+        if (mobile) {
+          if (!app.classList.contains("sheet-peek") && !app.classList.contains("sheet-half") && !app.classList.contains("sheet-full")) {
+            setSheetDetent("peek");
+          }
+        } else {
+          ["peek", "half", "full"].forEach((d) => {
+            side.classList.remove("sheet-" + d);
+            app.classList.remove("sheet-" + d);
+          });
+        }
+        if (map) map.invalidateSize();
+      };
+      applySheetLayout();
+      window.addEventListener("resize", applySheetLayout);
+    }
+
+    function renderTripWxClimate() {
+      const T = window.SevillaTrip;
+      if (!T) return;
+      const a = T.AEMET;
+      const cards = T.ERA5_TRIP.map((d) => {
+        const lab = d.date === "01-01" ? "1 gen" : d.date.slice(3) + " dic";
+        return `<div class="day"><div class="dname">${lab}</div>
+          <div class="hi">${d.tmax.toFixed(0)}°</div>
+          <div class="lo">${d.tmin.toFixed(0)}°</div></div>`;
+      }).join("");
+      document.getElementById("tripWxTitle").textContent = "Clima 27 dic–1 gen";
+      document.getElementById("tripWxBody").innerHTML =
+        `<div class="trip-wx">${cards}</div>`;
+      document.getElementById("tripWxNote").textContent =
+        `Medie ERA5 2020–24 (Open-Meteo). AEMET ${a.station}: dic ${a.dec.t}° media, max ${a.dec.tmax}°, min ${a.dec.tmin}°, ${a.dec.rainMm} mm (mese più piovoso). Forecast IFS quando manca ≤15 giorni.`;
+    }
+
+    function renderTripWxForecast(data) {
+      const days = data.daily;
+      const cards = days.time.map((iso, i) => {
+        const wi = wmoInfo(days.weather_code[i]);
+        const lab = iso.slice(5);
+        const pop = days.precipitation_probability_max?.[i];
+        const rain = days.precipitation_sum[i];
+        return `<div class="day"><div class="dname">${lab}</div>
+          <div class="ico">${wi.icon}</div>
+          <div class="hi">${Math.round(days.temperature_2m_max[i])}°</div>
+          <div class="lo">${Math.round(days.temperature_2m_min[i])}°</div>
+          <div class="rain">${rain > 0.05 ? rain.toFixed(1) + " mm" : (pop != null ? pop + "%" : "—")}</div></div>`;
+      }).join("");
+      document.getElementById("tripWxTitle").textContent = "Previsione viaggio · ECMWF IFS";
+      document.getElementById("tripWxBody").innerHTML = `<div class="trip-wx">${cards}</div>`;
+      document.getElementById("tripWxNote").textContent =
+        "Open-Meteo, modello ECMWF IFS. Verificare di nuovo a ridosso della partenza.";
+    }
+
+    async function loadTripWeather() {
+      const T = window.SevillaTrip;
+      if (!T) return;
+      if (!T.tripInForecastWindow()) {
+        renderTripWxClimate();
+        return;
+      }
+      try {
+        const res = await fetch(T.tripForecastUrl(HOTEL.lat, HOTEL.lng));
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        tripWxState = await res.json();
+        if (!tripWxState.daily || !tripWxState.daily.time) throw new Error("niente daily");
+        renderTripWxForecast(tripWxState);
+      } catch (e) {
+        renderTripWxClimate();
+        document.getElementById("tripWxNote").textContent =
+          `IFS non disponibile (${e.message}). Mostro il clima AEMET/ERA5.`;
+      }
+    }
+
+    function maxPriorityForZoom(z) {
+      if (z < 10.5) return 1;
+      if (z < 13) return 2;
+      return 3;
+    }
+    function computeVisible() {
+      const b = map.getBounds().pad(0.08);
+      const z = map.getZoom();
+      const maxP = maxPriorityForZoom(z);
+      const ids = new Set();
+      const nowP = madridNowParts();
+      PLACES.forEach((p, i) => {
+        const pr = p.priority || 2;
+        if (pr > maxP && p.cat !== "you") return;
+        if (!activeCats.has(p.cat)) return;
+        if (p.cat === "market" && marketDayFilter !== "all" && marketDayFilter != null) {
+          if (!marketOpenOnDay(p, marketDayFilter)) return;
+        }
+        if (b.contains([p.lat, p.lng])) ids.add(i);
+      });
+      PLACES.forEach((p, i) => {
+        if (p.cat === "you" && activeCats.has("you")) ids.add(i);
+      });
+      if (sidebarMode === "piano") dayPlaceIndexes().forEach((i) => ids.add(i));
+      return ids;
+    }
+
+    function tierRing(p) {
+      if (p.tier === "typical") return "#22c55e";
+      if (p.tier === "good") return "#38bdf8";
+      if (p.tier === "special") return "#fbbf24";
+      return "white";
+    }
+    function iconFor(p) {
+      const c = categories.find(x => x.id === p.cat)?.color || "#64748b";
+      let ring = "white";
+      if (p.cat === "tapas" || p.cat === "food") ring = tierRing(p);
+      if (p.cat === "mirador") ring = "#fb923c";
+      if (p.cat === "market") {
+        const now = madridNowParts();
+        if (marketIsOpenNow(p, now)) ring = "#22c55e";
+        else if (marketOpenOnDay(p, now.day)) ring = "#86efac";
+      }
+      const size = (p.priority || 2) === 1 ? 16 : 13;
+      return L.divIcon({
+        className: "",
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${c};border:2px solid ${ring};box-shadow:0 1px 4px rgba(0,0,0,.45)"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+    }
+    function scoreBadges(p) {
+      const pop = Number(p.popularity) || 0;
+      const rom = Number(p.romance) || 0;
+      if (!pop && !rom) return "";
+      return `<span class="badge pop" title="Popolarità ${pop}/5">pop ${pop}</span>`
+        + ` <span class="badge rom" title="Romanticismo ${rom}/5">rom ${rom}</span>`;
+    }
+
+    function scoreSort(a, b) {
+      const sa = (Number(a.p.popularity) || 0) + (Number(a.p.romance) || 0);
+      const sb = (Number(b.p.popularity) || 0) + (Number(b.p.romance) || 0);
+      if (sb !== sa) return sb - sa;
+      const pa = Number(a.p.popularity) || 0;
+      const pb = Number(b.p.popularity) || 0;
+      if (pb !== pa) return pb - pa;
+      return a.p.name.localeCompare(b.p.name, "it");
+    }
+
+    function persistCollapsed() {
+      localStorage.setItem("sevilla-collapsed", JSON.stringify([...collapsedCats]));
+    }
+
+    function popupHtml(p) {
+      let extra = "";
+      const scores = scoreBadges(p);
+      if (scores) extra += `<div class="info-box">${scores}</div>`;
+      if (p.tier) {
+        extra += `<div class="info-box"><strong>${p.tier}</strong> — ${p.tier === "special" ? "prenota, non è il pranzo di tutti i giorni" : p.tier === "good" ? "tapas con più cura" : "barra / barrio"}</div>`;
+      }
+      if (p.cat === "mirador") {
+        const sun = sunTimes(p.lat, p.lng);
+        extra += `<div class="info-box"><strong>Tramonto qui</strong> ${fmtTime(sun.sunset)}<br>Golden hour: ${fmtTime(sun.goldenStart)}</div>`;
+      }
+      if (p.cat !== "market" && (p.hours || p.closed || p.bookUrl)) {
+        const href = safeHttpUrl(p.bookUrl);
+        extra += `<div class="info-box">${p.hours ? `<strong>${esc(p.hours)}</strong><br>` : ""}
+          ${p.closed ? `Chiuso: ${esc(p.closed)}<br>` : ""}
+          ${href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">Prenota sul sito ufficiale</a>` : ""}</div>`;
+      }
+      if (p.cat === "market") {
+        const now = madridNowParts();
+        const open = marketIsOpenNow(p, now);
+        const today = marketOpenOnDay(p, now.day);
+        extra += `<div class="info-box"><strong>${open ? "Aperto ora (indicativo)" : today ? "Oggi in calendario" : formatMarketDays(p)}</strong><br>
+          ${esc(p.hours || "mattina")}<br><small>${esc(p.place || "")}</small></div>`;
+      }
+      return `<div class="popup"><h3>${esc(p.name)}</h3><p>${esc(p.desc || "")}</p>${extra}
+        <a href="${gmapsUrl(p)}" target="_blank" rel="noopener noreferrer">Google Maps →</a></div>`;
+    }
+
+    function applyVisibility() {
+      const ids = computeVisible();
+      visibleIds = ids;
+      markers.forEach((m, i) => {
+        if (ids.has(i)) {
+          if (!map.hasLayer(m)) m.addTo(map);
+        } else if (map.hasLayer(m)) {
+          map.removeLayer(m);
+        }
+      });
+      const c = map.getCenter();
+      const z = zoneAt(c.lat, c.lng);
+      document.getElementById("zoneLabel").textContent = `Zona: ${z.name}`;
+      document.getElementById("viewMeta").textContent =
+        `${ids.size} punti in vista · zoom ${map.getZoom().toFixed(1)} · scorri per cambiare area`;
+      document.getElementById("listMeta").textContent =
+        `Elenco filtrato sulla mappa visibile (${ids.size})`;
+      document.querySelectorAll("#zoneChips button").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.id === z.id);
+      });
+      activeZoneId = z.id;
+      if (sidebarMode === "catalogo") {
+        renderList();
+        renderMarketPanel();
+      }
+      applyDayFocus(false);
+    }
+
+    function onViewChange() {
+      applyVisibility();
+      const c = map.getCenter();
+      loadWeather(c.lat, c.lng, false);
+    }
+
+    function renderFilters() {
+      const el = document.getElementById("filters");
+      el.innerHTML = categories.map(c =>
+        `<button type="button" data-id="${c.id}" class="${activeCats.has(c.id) ? "active" : ""}">${c.label}</button>`
+      ).join("");
+      el.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          if (activeCats.has(id)) activeCats.delete(id); else activeCats.add(id);
+          btn.classList.toggle("active");
+          applyVisibility();
+        });
+      });
+      const on = document.getElementById("btnAllOn");
+      const off = document.getElementById("btnAllOff");
+      if (on && !on._bound) {
+        on._bound = true;
+        on.addEventListener("click", () => {
+          categories.forEach(c => activeCats.add(c.id));
+          renderFilters();
+          applyVisibility();
+        });
+      }
+      if (off && !off._bound) {
+        off._bound = true;
+        off.addEventListener("click", () => {
+          activeCats.clear();
+          renderFilters();
+          applyVisibility();
+        });
+      }
+      const foldOpen = document.getElementById("btnFoldOpen");
+      const foldClose = document.getElementById("btnFoldClose");
+      if (foldOpen && !foldOpen._bound) {
+        foldOpen._bound = true;
+        foldOpen.addEventListener("click", () => {
+          collapsedCats.clear();
+          persistCollapsed();
+          renderList();
+        });
+      }
+      if (foldClose && !foldClose._bound) {
+        foldClose._bound = true;
+        foldClose.addEventListener("click", () => {
+          categories.forEach(c => collapsedCats.add(c.id));
+          persistCollapsed();
+          renderList();
+        });
+      }
+    }
+
+    function renderZoneChips() {
+      const el = document.getElementById("zoneChips");
+      el.innerHTML = ZONES.map(z =>
+        `<button type="button" data-id="${z.id}">${z.name}</button>`
+      ).join("");
+      el.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const z = ZONES.find(x => x.id === btn.dataset.id);
+          if (!z) return;
+          map.setView([z.lat, z.lng], z.zoom);
+          setTimeout(() => loadWeather(z.lat, z.lng, true), 300);
+        });
+      });
+    }
+
+    function renderList() {
+      const list = document.getElementById("list");
+      list.innerHTML = categories.filter(c => activeCats.has(c.id)).map(c => {
+        const items = PLACES
+          .map((p, i) => ({ p, i }))
+          .filter(({ p, i }) => p.cat === c.id && visibleIds.has(i))
+          .sort(scoreSort);
+        if (!items.length) return "";
+        const folded = collapsedCats.has(c.id);
+        return `<section class="cat${folded ? " collapsed" : ""}" data-cat="${c.id}">
+          <button type="button" class="cat-toggle" data-cat="${c.id}" aria-expanded="${folded ? "false" : "true"}">
+            <span class="chev" aria-hidden="true">${folded ? "▸" : "▾"}</span>
+            ${c.label} <span class="n">(${items.length})</span>
+          </button>
+          <div class="cat-body">${items.map(({ p, i }) => {
+          let badge = scoreBadges(p);
+          if (p.tier) badge += ` <span class="badge ${p.tier}">${p.tier}</span>`;
+          if (p.cat === "mirador") badge += ` <span class="badge sun">tramonto ${fmtTime(sunTimes(p.lat, p.lng).sunset)}</span>`;
+          if (p.cat === "market") {
+            const st = marketStatusBadge(p);
+            badge += ` <span class="badge ${st.cls}">${st.text}</span>`;
+          }
+          return `<button type="button" class="item" data-i="${i}">
+            <div class="t">${esc(p.name)} ${badge}</div>
+            <div class="d">${esc(p.desc || "")}</div>
+            <a class="gmaps" href="${gmapsUrl(p)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Maps</a>
+          </button>`;
+        }).join("")}</div></section>`;
+      }).join("") || `<p class="list-meta">Nessun punto in vista — zoom out o cambia filtri.</p>`;
+
+      list.querySelectorAll(".cat-toggle").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.cat;
+          if (collapsedCats.has(id)) collapsedCats.delete(id);
+          else collapsedCats.add(id);
+          persistCollapsed();
+          renderList();
+        });
+      });
+
+      list.querySelectorAll(".item").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          if (e.target.closest("a")) return;
+          focusPlaceIndex(+btn.dataset.i, true);
+        });
+      });
+    }
+
+    function initGuide() {
+      const fab = document.getElementById("guideFab");
+      const panel = document.getElementById("guidePanel");
+      const log = document.getElementById("guideLog");
+      const form = document.getElementById("guideForm");
+      const input = document.getElementById("guideInput");
+      const closeBtn = document.getElementById("guideClose");
+      const Guide = window.SevillaGuide || window.EmeraudeGuide;
+      if (!fab || !Guide) return;
+      if (panel && typeof L !== "undefined") {
+        L.DomEvent.disableScrollPropagation(panel);
+        L.DomEvent.disableClickPropagation(panel);
+      }
+
+      function mdLite(t) {
+        return t
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
+            const safe = safeHttpUrl(href);
+            return safe
+              ? `<a href="${esc(safe)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`
+              : esc(label);
+          })
+          .replace(/^### (.+)$/gm, "<strong>$1</strong>")
+          .replace(/^_(.+)_$/gm, "<em style=color:#94a3b8>$1</em>");
+      }
+      function addMsg(role, text) {
+        const div = document.createElement("div");
+        div.className = "msg " + role;
+        if (role === "user") div.textContent = "Tu: " + text;
+        else div.innerHTML = mdLite(text);
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+      }
+      const chips = [
+        "Piano del soggiorno",
+        "Cosa faccio oggi?",
+        "Voli",
+        "1 gennaio",
+        "Nochevieja",
+        "Dove mangiare typical",
+        "Tapas Triana",
+        "Inverno / pioggia",
+      ];
+      const chipsEl = document.getElementById("guideChips");
+      chips.forEach((c) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = c;
+        b.addEventListener("click", () => ask(c));
+        chipsEl.appendChild(b);
+      });
+      async function ask(text) {
+        text = (text || "").trim();
+        if (!text) return;
+        addMsg("user", text);
+        input.value = "";
+        const thinking = document.createElement("div");
+        thinking.className = "msg bot";
+        thinking.textContent = "…";
+        log.appendChild(thinking);
+        log.scrollTop = log.scrollHeight;
+        try {
+          const res = await Guide.answer(text);
+          thinking.innerHTML = mdLite(res.text);
+        } catch (e) {
+          thinking.textContent = "Errore: " + e.message;
+        }
+      }
+      fab.addEventListener("click", () => {
+        panel.classList.toggle("open");
+        if (panel.classList.contains("open") && !log.dataset.welcomed) {
+          log.dataset.welcomed = "1";
+          addMsg("bot", "Guida **Sevilla** pronta.\n**27 dic 2026 – 1 gen 2027** · in due · hotel Puerta de Triana.\nFR4348 / FR4349. Chiedimi il piano, i voli, il 1° gennaio, le tapas…");
+        }
+      });
+      closeBtn.addEventListener("click", () => panel.classList.remove("open"));
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        ask(input.value);
+      });
+    }
+
+    function initApp() {
+      map = L.map("map", { zoomControl: true }).setView([HOTEL.lat, HOTEL.lng], 15);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap · meteo Open-Meteo",
+        maxZoom: 18,
+      }).addTo(map);
+
+      markers = PLACES.map((p, i) => {
+        const m = L.marker([p.lat, p.lng], { icon: iconFor(p) });
+        m.bindPopup(() => popupHtml(p));
+        m._idx = i;
+        m.on("click", () => highlightTimeline(p.name));
+        return m;
+      });
+
+      map.on("moveend", () => {
+        clearTimeout(moveTimer);
+        moveTimer = setTimeout(onViewChange, 180);
+      });
+      map.on("zoomend", () => {
+        clearTimeout(moveTimer);
+        moveTimer = setTimeout(onViewChange, 180);
+      });
+
+      initChrome();
+      renderFilters();
+      renderZoneChips();
+      renderTripPanel();
+      applyVisibility();
+      applyDayFocus(true);
+      loadWeather(HOTEL.lat, HOTEL.lng, true);
+      loadTripWeather();
+      initGuide();
+      setInterval(() => {
+        const c = map.getCenter();
+        loadWeather(c.lat, c.lng, false);
+      }, 5 * 60 * 1000);
+    }
+
+    Promise.all([
+      fetch("places_data.json").then((r) => { if (!r.ok) throw new Error("places HTTP " + r.status); return r.json(); }),
+      fetch("agent/itinerary.json").then((r) => { if (!r.ok) throw new Error("itinerary HTTP " + r.status); return r.json(); }),
+    ])
+      .then(([data, itin]) => {
+        PLACES = window.PLACES = data;
+        ITINERARY = window.ITINERARY = itin;
+        initApp();
+      })
+      .catch((err) => {
+        document.getElementById("dayTimeline").textContent =
+          `Errore dataset: ${err.message}. Apri la pagina via http (non file://).`;
+      });
+  </script>
+</body>
+</html>
